@@ -14,6 +14,12 @@ options:
   -r int, --range int   生成算式范围1: 一位数(TODO); 2: 两位数; 3: 三位数;
 ```
 
+## 示例
+```
+### docx 文件排版每页 40 题
+./cal.py -t 3 -l 2 -c 40
+```
+
 ###1. 
 format check
 ```
