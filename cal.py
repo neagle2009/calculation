@@ -5,7 +5,7 @@ Purpose: 生成计算训练算式
 !!! 文件名不能与包名相同, 否则会把文件当成包引入, 出现各种属性找不到 !!!
 """
 
-from ctypes.wintypes import RGB
+# from ctypes.wintypes import RGB
 from docx import Document
 from docx.oxml.ns import qn
 from docx.shared import Pt, RGBColor
@@ -40,7 +40,8 @@ def getArgs():
                         metavar='Type',
                         type=int,
                         default=3,
-                        help='生成类型, 1: 加法; 2: 减法; 3: 加减混合;')
+                        help='生成类型, 1: 加法;\
+                                2: 减法; 3: 加减混合;4: 乘法; 5: 除法; 6: 乘除混合')
     parser.add_argument('-r',
                         '--range',
                         help='生成算式范围1: 一位数(TODO); 2: 两位数; 3: 三位数;',
@@ -77,6 +78,50 @@ def GetPlusCal(num):
             continue
 
         result = str(a) + ' + ' + str(b) + ' = '
+        if result in list:
+            continue
+        list.append(result)
+    return list
+
+
+def GetMultiCal(num):
+    """获取乘法算式"""
+    list = []
+    while len(list) < num:
+        if level == 1:
+            a = random.randint(2, 9)
+            b = random.randint(2, 9)
+            result = str(a) + ' × ' + str(b) + ' = '
+        elif level == 2:
+            a = random.randint(2, 9)
+            max = 100 // a
+            b = random.randint(10, max)
+            result = str(a) + ' × ' + str(b) + ' = '
+        if result in list:
+            continue
+        list.append(result)
+    return list
+
+
+def GetDivCal(num):
+    """获取除法"""
+    list = []
+    result = ''
+    while len(list) < num:
+        # 整除, 口算, 乘法口诀逆运算
+        if level == 1:
+            a = random.randint(2, 9)
+            b = random.randint(2, 9)
+            r = a*b
+            if random.randint(0, 99) % 3 == 0:
+                r = r + random.randint(1, a-1)
+            result = str(r) + ' ÷ ' + str(a) + ' = '
+        # 乘法口诀加余数
+        elif level == 2:
+            a = random.randint(2, 9)
+            b = random.randint(10, 99)
+            result = str(b) + ' ÷ ' + str(a) + ' = '
+
         if result in list:
             continue
         list.append(result)
@@ -128,6 +173,18 @@ def GetMixedCal(num):
     return resultList
 
 
+def GetMixedCalMD(num):
+    """获取混合算式算式"""
+
+    multi = num // 2
+    div = num - multi
+    listM = GetMultiCal(multi)
+    listD = GetDivCal(div)
+    resultList = listM + listD
+    resultList.sort()
+    return resultList
+
+
 def printResult(list):
     """ 结果打印(TODO: 直接生成打印格式) """
 
@@ -142,18 +199,25 @@ def saveDocx(args, list):
 
     document = Document()
     document.styles['Normal'].font.name = u'Dejavu Sans Mono for Powerline'
-    #字号对照 link: https://www.jianshu.com/p/8f15e3f2f9e6
+    # 字号对照 link: https://www.jianshu.com/p/8f15e3f2f9e6
     document.styles['Normal'].font.size = Pt(14)
     document.styles['Normal']._element.rPr.rFonts.set(
         qn('w:eastAsia'), u'Dejavu Sans Mono for Powerline')
 
     title = ''
-    if args.type == 1:
-        title = '加法'
-    if args.type == 2:
-        title = '减法'
-    if args.type == 3:
-        title = '加减混合'
+    match args.type:
+        case 1:
+            title = '加法'
+        case 2:
+            title = '减法'
+        case 3:
+            title = '加减混合'
+        case 4:
+            title = '乘法'
+        case 5:
+            title = '除法'
+        case 6:
+            title = '乘除法'
 
     header = document.sections[0].header.paragraphs[0]
     header.alignment = WD_ALIGN_PARAGRAPH.LEFT
@@ -164,10 +228,12 @@ def saveDocx(args, list):
     footer = document.sections[0].footer.paragraphs[0]
     footer.style.font.name = u'Dejavu Sans Mono for Powerline'
     footer.style.font.size = Pt(12)
-    footer.style.font.color.rgb = RGBColor(165, 165, 165)   # 灰色  !打印机打印时选择灰度打印, 否则偏蓝
-    footer.text = title + '算式(共' + str( len(list)) + '题)    ' + datetime.datetime.now().strftime( '%Y-%m-%d %H:%M:%S')
+    # 灰色!打印机打印时选择灰度打印,否则偏蓝
+    footer.style.font.color.rgb = RGBColor(165, 165, 165)
+    footer.text = title + '算式(共' + str(len(list)) + '题)    '\
+        + datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-    #分栏
+    # 分栏
     document.sections[0]._sectPr.xpath('./w:cols')[0].set(qn('w:num'), '2')
 
     for i in range(0, len(list)):
@@ -175,7 +241,7 @@ def saveDocx(args, list):
         paragraph_format = paragraph.paragraph_format
         paragraph_format.space_before = None  # 段前距
         paragraph_format.space_after = None  # 段后距
-        paragraph_format.line_spacing_rule = WD_ALIGN_PARAGRAPH.JUSTIFY  # 设置行距规则
+        paragraph_format.line_spacing_rule = WD_ALIGN_PARAGRAPH.JUSTIFY  # 行距规则
         paragraph.paragraph_format.line_spacing_rule = WD_LINE_SPACING.DOUBLE
     x = datetime.datetime.now()
     filename = title + x.strftime("%Y%m%d%H%M%S") + '.docx'
@@ -189,13 +255,20 @@ def main():
     args = getArgs()
     global level, rangeType
     level = args.level
-    rangeType = args.range
-    if args.type == 1:
-        list = GetPlusCal(args.count)
-    elif args.type == 2:
-        list = GetMinusCal(args.count)
-    else:
-        list = GetMixedCal(args.count)
+    match args.type:
+        case 1:
+            list = GetPlusCal(args.count)
+        case 2:
+            list = GetMinusCal(args.count)
+        case 3:
+            list = GetMixedCal(args.count)
+        case 4:
+            list = GetMultiCal(args.count)
+        case 5:
+            list = GetDivCal(args.count)
+        case 6:
+            list = GetMixedCalMD(args.count)
+
     random.shuffle(list)
     printResult(list)
     saveDocx(args, list)
